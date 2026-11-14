@@ -10,11 +10,26 @@
 double w = 110.0;
 double h = 30.0;
 double base_x = 807.0;
-double base_y = 2.0;
+double base_y = 5.0;
 Window win_id;
 
+// Bloquear el teclado (hacer que la ventana ignore todas las teclas)
+gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+    return TRUE; 
+}
+
+// Hacer la ventana click-through (ignorar el mouse)
+void hacer_click_through(GtkWidget *widget) {
+    GdkWindow *gw = gtk_widget_get_window(widget);
+    if (gw) {
+        cairo_region_t *empty = cairo_region_create();
+        gdk_window_input_shape_combine_region(gw, empty, 0, 0);
+        cairo_region_destroy(empty);
+    }
+}
+
 void dibujar_contenido(cairo_t *cr, double alpha) {
-    double icon_x = 78.0;
+    double icon_x = 79.5;
     double icon_y = (h / 2.0) - 2.0;
 
     time_t t = time(NULL);
@@ -27,18 +42,23 @@ void dibujar_contenido(cairo_t *cr, double alpha) {
     cairo_text_extents_t extents;
     cairo_text_extents(cr, time_str, &extents);
 
-    /* Regla: 3 px fijos entre el borde derecho del texto y el borde izquierdo de la flecha */
+    double scale_x = 0.85; 
+    double scale_y = 1.07;
     double arrow_left_edge = icon_x - 4.0;
-    double text_x = arrow_left_edge - 8.0 - extents.x_bearing - extents.width;
+    double text_x = arrow_left_edge - 3.5 - (extents.x_bearing + extents.width) * scale_x;
     if (text_x < 2.0) text_x = 2.0;
 
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha);
-    cairo_move_to(cr, text_x, (h + extents.height) / 2.0 - 2.0);
+    cairo_save(cr);
+    cairo_translate(cr, text_x, (h + extents.height) / 2.0 - 1.0);
+    cairo_scale(cr, scale_x, scale_y);
+    cairo_move_to(cr, 0, 0);
     cairo_show_text(cr, time_str);
+    cairo_restore(cr);
 
     cairo_save(cr);
     cairo_translate(cr, icon_x, icon_y);
-    cairo_rotate(cr, -0.35);
+    cairo_rotate(cr, -0.4722);
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha);
     cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
     cairo_set_line_width(cr, 2.5);
@@ -68,8 +88,7 @@ void blur_surface(cairo_surface_t *surf, int radius) {
                 int nx = x + dx;
                 if (nx < 0 || nx >= bw) continue;
                 unsigned char *p = data + y*stride + nx*4;
-                b += p[0]; g += p[1]; r += p[2]; a += p[3];
-                count++;
+                b += p[0]; g += p[1]; r += p[2]; a += p[3]; count++;
             }
             unsigned char *d = tmp + y*stride + x*4;
             d[0] = b/count; d[1] = g/count; d[2] = r/count; d[3] = a/count;
@@ -82,8 +101,7 @@ void blur_surface(cairo_surface_t *surf, int radius) {
                 int ny = y + dy;
                 if (ny < 0 || ny >= bh) continue;
                 unsigned char *p = tmp + ny*stride + x*4;
-                b += p[0]; g += p[1]; r += p[2]; a += p[3];
-                count++;
+                b += p[0]; g += p[1]; r += p[2]; a += p[3]; count++;
             }
             unsigned char *d = data + y*stride + x*4;
             d[0] = b/count; d[1] = g/count; d[2] = r/count; d[3] = a/count;
@@ -118,6 +136,7 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
 void on_realize(GtkWidget *widget, gpointer data) {
     win_id = gdk_x11_window_get_xid(gtk_widget_get_window(widget));
+    hacer_click_through(widget);
 }
 
 void on_map(GtkWidget *widget, gpointer data) {
@@ -125,6 +144,7 @@ void on_map(GtkWidget *widget, gpointer data) {
     snprintf(cmd, sizeof(cmd), "i3-msg '[id=\"%lu\"] floating enable, border none, sticky enable'", win_id);
     system(cmd);
     gtk_window_move(GTK_WINDOW(widget), (int)base_x, (int)base_y);
+    hacer_click_through(widget);
 }
 
 gboolean update_clock(gpointer data) { gtk_widget_queue_draw(GTK_WIDGET(data)); return TRUE; }
@@ -137,6 +157,12 @@ int main(int argc, char *argv[]) {
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(window), TRUE);
     gtk_window_set_wmclass(GTK_WINDOW(window), "bote_reloj", "BoteReloj");
+
+    // Bloquear foco de teclado
+    gtk_window_set_accept_focus(GTK_WINDOW(window), FALSE);
+    gtk_window_set_focus_on_map(GTK_WINDOW(window), FALSE);
+    gtk_widget_set_can_focus(window, FALSE);
+    g_signal_connect(window, "key-press-event", G_CALLBACK(on_key_press), NULL);
 
     gtk_widget_set_app_paintable(window, TRUE);
     GdkScreen *screen = gtk_widget_get_screen(window);

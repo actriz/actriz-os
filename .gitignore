@@ -5,19 +5,19 @@
 # --- MOTOR LLAMA.CPP ---
 core/actriz_ai/bin/llama.cpp/
 
-# --- BINARIOS COMPILADOS ---
-bin/abc
-bin/bote_reloj
-bin/bote_wifi_bat
-bin/borde
-bin/dock
-bin/isla
-bin/isla_inferior
+# --- BINARIOS COMPILADOS (Los ignoramos, el código fuente sí se sube) ---
+entornografico/navegacion/ISLA_SUPERIOR/isla
+entornografico/navegacion/ISLA_SUPERIOR/bote_reloj
+entornografico/navegacion/ISLA_SUPERIOR/bote_wifi_bat
+entornografico/navegacion/ISLA_INFERIOR/isla_inferior
+entornografico/navegacion/ISLA_INFERIOR/dock
+entornografico/navegacion/BORDE/borde
+entornografico/aplicaciones/SISTEMA/sistema
+entornografico/aplicaciones/SISTEMA/theme_switcher
+core/actriz_ai/abc/abc
 
-# --- HERRAMIENTAS EXTERNAS ---
+# --- HERRAMIENTAS EXTERNAS Y BASURA ---
 ble.sh/
-
-# --- BASURA ---
 *.o
 *.py
 *.bak*

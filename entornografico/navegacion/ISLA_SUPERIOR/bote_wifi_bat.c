@@ -11,7 +11,7 @@
 double w = 400.0;
 double h = 120.0;
 double base_x = 1012.0;
-double base_y = -43.0;
+double base_y = -40.0;
 Window win_id;
 
 int burst_ticks = 0;
@@ -30,6 +30,17 @@ gboolean update_info(gpointer data);
 static struct udev *udev_ctx = NULL;
 static struct udev_monitor *udev_mon = NULL;
 static guint udev_watch_id = 0;
+
+gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) { return TRUE; }
+
+void hacer_click_through(GtkWidget *widget) {
+    GdkWindow *gw = gtk_widget_get_window(widget);
+    if (gw) {
+        cairo_region_t *empty = cairo_region_create();
+        gdk_window_input_shape_combine_region(gw, empty, 0, 0);
+        cairo_region_destroy(empty);
+    }
+}
 
 static void redraw_inmediato(GtkWidget *w) {
     GdkWindow *gw = gtk_widget_get_window(w);
@@ -82,13 +93,8 @@ int leer_entero(const char *path, int fallback) {
     return v;
 }
 
-int get_battery_level() {
-    return leer_entero(bat_capacity_path, 100);
-}
-
-int get_charging_efectivo() {
-    return (ac_online_cache == 1 && !bat_full_cache) ? 1 : 0;
-}
+int get_battery_level() { return leer_entero(bat_capacity_path, 100); }
+int get_charging_efectivo() { return (ac_online_cache == 1 && !bat_full_cache) ? 1 : 0; }
 
 int get_wifi_strength() {
     FILE *f = fopen("/proc/net/wireless", "r");
@@ -107,7 +113,6 @@ int get_wifi_strength() {
 
 static gboolean on_udev_event(GIOChannel *source, GIOCondition condition, gpointer data) {
     if (!(condition & G_IO_IN)) return TRUE;
-
     int eventos = 0;
     struct udev_device *dev;
     while ((dev = udev_monitor_receive_device(udev_mon))) {
@@ -117,9 +122,7 @@ static gboolean on_udev_event(GIOChannel *source, GIOCondition condition, gpoint
         if (status) { bat_full_cache = (strncmp(status, "Full", 4) == 0) ? 1 : 0; eventos++; }
         udev_device_unref(dev);
     }
-
     if (eventos == 0) return TRUE;
-
     int charging = get_charging_efectivo();
     if (prev_charging != charging) {
         if (prev_charging == 0 && charging == 1) {
@@ -139,7 +142,6 @@ void setup_udev_monitor(GtkWidget *window) {
     if (!udev_mon) return;
     udev_monitor_filter_add_match_subsystem_devtype(udev_mon, "power_supply", NULL);
     udev_monitor_enable_receiving(udev_mon);
-
     GIOChannel *channel = g_io_channel_unix_new(udev_monitor_get_fd(udev_mon));
     g_io_channel_set_flags(channel, G_IO_FLAG_NONBLOCK, NULL);
     udev_watch_id = g_io_add_watch(channel, G_IO_IN, on_udev_event, window);
@@ -171,14 +173,16 @@ void dibujar_bateria(cairo_t *cr, double x, double y, int level, double alpha) {
 }
 
 void dibujar_wifi(cairo_t *cr, double x, double y, int bars, double alpha) {
-    double cx = x + 7.0; double cy = y + 10.0;
-    cairo_set_line_width(cr, 1.4); cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, bars >= 1 ? 0.65 : 0.3);
-    cairo_arc(cr, cx, cy - 1, 1.5, 0, 2*M_PI); cairo_fill(cr);
-    double radios[] = {3.5, 6.5, 9.5};
-    for (int i = 0; i < 3; i++) {
-        cairo_new_sub_path(cr); cairo_arc(cr, cx, cy, radios[i], -3*M_PI/4, -M_PI/4);
-        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, bars >= i + 2 ? 0.65 : 0.2);
+    double cx = x + 7.0; double cy = y + 9.0;
+    cairo_set_line_width(cr, 1.7); cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, bars >= 1 ? alpha : alpha * 0.3);
+    cairo_arc(cr, cx, cy, 1.1, 0, 2*M_PI); cairo_fill(cr);
+    double radios[] = {4.2, 8.5};
+    for (int i = 0; i < 2; i++) {
+        cairo_new_sub_path(cr);
+        cairo_arc(cr, cx, cy, radios[i], -3.1 * M_PI / 4.0, -0.9 * M_PI / 4.0);
+        double current_alpha = (bars >= i + 3) ? alpha : alpha * 0.3;
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, current_alpha);
         cairo_stroke(cr);
     }
 }
@@ -239,8 +243,7 @@ void blur_surface(cairo_surface_t *surf, int radius) {
                 int nx = x + dx;
                 if (nx < 0 || nx >= bw) continue;
                 unsigned char *p = data + y*stride + nx*4;
-                b += p[0]; g += p[1]; r += p[2]; a += p[3];
-                count++;
+                b += p[0]; g += p[1]; r += p[2]; a += p[3]; count++;
             }
             unsigned char *d = tmp + y*stride + x*4;
             d[0] = b/count; d[1] = g/count; d[2] = r/count; d[3] = a/count;
@@ -253,8 +256,7 @@ void blur_surface(cairo_surface_t *surf, int radius) {
                 int ny = y + dy;
                 if (ny < 0 || ny >= bh) continue;
                 unsigned char *p = tmp + ny*stride + x*4;
-                b += p[0]; g += p[1]; r += p[2]; a += p[3];
-                count++;
+                b += p[0]; g += p[1]; r += p[2]; a += p[3]; count++;
             }
             unsigned char *d = data + y*stride + x*4;
             d[0] = b/count; d[1] = g/count; d[2] = r/count; d[3] = a/count;
@@ -275,8 +277,8 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     int charging = prev_charging;
     double pulse = charging ? (sin(pulse_phase * 2.0 * M_PI) + 1.0) / 2.0 : 0.0;
     double burst_progress = (burst_ticks > 0) ? (1.0 - (double)burst_ticks / 12.0) : -1.0;
-    double bx = (charging ? 35.0 : 38.0), by = (h - 10)/2.0, bw = 20.0, bh = 10.0;
-    double rayo_cx = (charging ? 65.0 : 68.0);
+    double bx = (charging ? 35.0 : 36.0), by = (h - 10)/2.0 - 1.0, bw = 20.0, bh = 10.0;
+    double rayo_cx = (charging ? 64.0 : 67.0);
     double rayo_cy = h / 2.0;
 
     cairo_surface_t *glow = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int)w, (int)h);
@@ -303,6 +305,7 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
 void on_realize(GtkWidget *widget, gpointer data) {
     win_id = gdk_x11_window_get_xid(gtk_widget_get_window(widget));
+    hacer_click_through(widget);
 }
 
 void on_map(GtkWidget *widget, gpointer data) {
@@ -310,6 +313,7 @@ void on_map(GtkWidget *widget, gpointer data) {
     snprintf(cmd, sizeof(cmd), "i3-msg '[id=\"%lu\"] floating enable, border none, sticky enable'", win_id);
     system(cmd);
     gtk_window_move(GTK_WINDOW(widget), (int)base_x, (int)base_y);
+    hacer_click_through(widget);
 }
 
 gboolean update_info(gpointer data) {
@@ -336,7 +340,6 @@ gboolean update_info(gpointer data) {
 
 int main(int argc, char *argv[]) {
     detectar_hardware();
-
     ac_online_cache = leer_entero(ac_online_path, 0);
     if (bat_status_path[0]) {
         FILE *f = fopen(bat_status_path, "r");
@@ -356,6 +359,11 @@ int main(int argc, char *argv[]) {
     gtk_window_set_skip_pager_hint(GTK_WINDOW(window), TRUE);
     gtk_window_set_wmclass(GTK_WINDOW(window), "bote_wifi_bat", "BoteWifiBat");
 
+    gtk_window_set_accept_focus(GTK_WINDOW(window), FALSE);
+    gtk_window_set_focus_on_map(GTK_WINDOW(window), FALSE);
+    gtk_widget_set_can_focus(window, FALSE);
+    g_signal_connect(window, "key-press-event", G_CALLBACK(on_key_press), NULL);
+
     gtk_widget_set_app_paintable(window, TRUE);
     GdkScreen *screen = gtk_widget_get_screen(window);
     GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
@@ -370,9 +378,7 @@ int main(int argc, char *argv[]) {
     g_signal_connect(window, "draw", G_CALLBACK(on_draw), NULL);
     g_signal_connect(window, "realize", G_CALLBACK(on_realize), NULL);
     g_signal_connect(window, "map-event", G_CALLBACK(on_map), NULL);
-
     setup_udev_monitor(window);
-
     g_timeout_add(16, update_info, window);
     gtk_widget_show_all(window);
     gtk_main();
@@ -380,6 +386,5 @@ int main(int argc, char *argv[]) {
     if (udev_watch_id > 0) g_source_remove(udev_watch_id);
     if (udev_mon) udev_monitor_unref(udev_mon);
     if (udev_ctx) udev_unref(udev_ctx);
-
     return 0;
 }

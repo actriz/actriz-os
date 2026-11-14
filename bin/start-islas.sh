@@ -15,8 +15,8 @@ if ! pgrep -x picom > /dev/null; then
 fi
 
 # 3. Lanzar las Islas y los Botes
-/opt/actriz/bin/isla &
-/opt/actriz/bin/isla_inferior &
-/opt/actriz/bin/bote_reloj &
-/opt/actriz/bin/bote_wifi_bat &
-/opt/actriz/bin/borde &
+/opt/actriz/entornografico/navegacion/ISLA_SUPERIOR/isla &
+/opt/actriz/entornografico/navegacion/ISLA_INFERIOR/isla_inferior &
+/opt/actriz/entornografico/navegacion/ISLA_SUPERIOR/bote_reloj &
+/opt/actriz/entornografico/navegacion/ISLA_SUPERIOR/bote_wifi_bat &
+/opt/actriz/entornografico/navegacion/BORDE/borde &
