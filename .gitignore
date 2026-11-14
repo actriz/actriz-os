@@ -1,0 +1,24 @@
+# --- CEREBROS DE IA (Muy pesados para GitHub) ---
+*.gguf
+*.bin
+
+# --- MOTOR LLAMA.CPP ---
+core/actriz_ai/bin/llama.cpp/
+
+# --- BINARIOS COMPILADOS ---
+bin/abc
+bin/bote_reloj
+bin/bote_wifi_bat
+bin/borde
+bin/dock
+bin/isla
+bin/isla_inferior
+
+# --- HERRAMIENTAS EXTERNAS ---
+ble.sh/
+
+# --- BASURA ---
+*.o
+*.py
+*.bak*
+*.log

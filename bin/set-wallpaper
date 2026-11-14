@@ -1,0 +1,9 @@
+#!/bin/bash
+IMG="$1"
+if [ -z "$IMG" ] || [ ! -f "$IMG" ]; then echo "Uso: set-wallpaper /ruta/a/la/imagen"; exit 1; fi
+
+# Aplicar la imagen
+feh --bg-fill "$IMG"
+
+# Guardar en la memoria persistente
+echo "$IMG" > ~/.config/actriz/estado/wallpaper.txt
