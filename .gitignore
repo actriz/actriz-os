@@ -21,3 +21,7 @@ ble.sh/
 *.bak*
 *.log
 .backups/
+config/zsh/.zcompdump
+__pycache__/
+historial_backups_*.tar.gz
+historial_bote_wifi_*.tar.gz
