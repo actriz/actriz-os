@@ -6,10 +6,10 @@ set $mod Mod4
 font pango:DejaVu Serif 8
 
 # --- ATAJOS BÁSICOS ---
-bindsym Control+Mod1+t exec /opt/actriz/bin/terminal
-bindsym $mod+Return exec /opt/actriz/bin/terminal
+bindsym Control+Mod1+t exec --no-startup-id /opt/actriz/bin/terminal
+bindsym $mod+Return exec --no-startup-id /opt/actriz/bin/terminal
 bindsym $mod+d exec --no-startup-id rofi -show drun
-bindsym $mod+Z exec flatpak run app.zen_browser.zen
+bindsym $mod+Z exec --no-startup-id flatpak run app.zen_browser.zen
 
 # --- CONTROL DE VENTANAS (Estándar i3) ---
 # Cerrar ventana (Q de Quit)
@@ -101,14 +101,14 @@ for_window [class="Borde"] floating enable, border none, sticky enable, move pos
 exec --no-startup-id dunst
 # Wallpaper de Actriz (reejecuta en cada reload para nunca fallar)
 exec_always --no-startup-id /opt/actriz/bin/set-wallpaper
-exec_always --no-startup-id sleep 1 && picom --config ~/.config/picom/picom.conf
+exec_always --no-startup-id sh -c 'pkill -x picom 2>/dev/null; sleep 0.3; picom --config ~/.config/picom/picom.conf --daemon'
 exec_always --no-startup-id sleep 1.5 && /opt/actriz/bin/start-islas.sh
 
 # --- RECARGA Y SALIDA ---
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Salir de Keu OS?' -B 'Sí' 'i3-msg exit'"
-bindsym $mod+a exec /opt/actriz/bin/abc-app
+bindsym $mod+a exec --no-startup-id /opt/actriz/bin/abc-app
 
 # --- WORKSPACES EXTENDIDOS (6 al 10) ---
 set $ws6 "6"
