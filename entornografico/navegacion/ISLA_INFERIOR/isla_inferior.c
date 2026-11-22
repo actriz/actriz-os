@@ -2,10 +2,14 @@
 #include <gdk/gdkx.h>
 #include <cairo.h>
 #include <math.h>
+#include "ojos.h"
 #include <stdlib.h>
 gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data);
 
 #define GLOW 20
+#define AGENT_EYE_DIAMETER 28.512
+#define AGENT_H (AGENT_EYE_DIAMETER + 2.0 * OJOS_MARGEN)
+#define AGENT_W (AGENT_H + AGENT_EYE_DIAMETER + OJOS_MARGEN)
 
 double base_w = 105.0;
 double base_h = 18.0;
@@ -22,7 +26,22 @@ double final_dx = 0;
 int last_gap = 33;
 Window win_id;
 
+gboolean estado_agente = FALSE;
+
+/* Parpadeo breve del cuerpo blanco al activar el agente. */
+double alpha_blanco = 1.0;
+guint flash_timer = 0;
+gboolean press_active = FALSE;
+gboolean long_press_triggered = FALSE;
+guint hold_timer = 0;
+
+double press_x, press_y;
+
+#define HOLD_DURATION_MS 550
+#define HOLD_MOVE_LIMIT 8.0
+
 void draw_pill(cairo_t *cr, double w, double h, double bend);
+gboolean animate_back(gpointer data);
 
 void blur_surface(cairo_surface_t *surf, int radius) {
     if (radius <= 0) return;
@@ -115,7 +134,7 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     cairo_t *cr_glow = cairo_create(glow);
     cairo_translate(cr_glow, GLOW, GLOW);
     draw_pill(cr_glow, w + 4.0, h + 4.0, cur_bend);
-    cairo_set_source_rgba(cr_glow, 1.0, 1.0, 1.0, 1.0);
+    cairo_set_source_rgba(cr_glow, 1.0, 1.0, 1.0, alpha_blanco);
     cairo_fill(cr_glow);
     blur_surface(glow, 12);
     cairo_set_source_surface(cr, glow, -2, -2);
@@ -126,8 +145,12 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     cairo_save(cr);
     cairo_translate(cr, GLOW, GLOW);
     draw_pill(cr, w, h, cur_bend);
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
+    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha_blanco);
     cairo_fill(cr);
+
+    if (estado_agente)
+        dibujar_ojos(cr, w, h);
+
     cairo_restore(cr);
 
     return FALSE;
@@ -151,7 +174,6 @@ void on_map(GtkWidget *widget, gpointer data) {
 gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) { return TRUE; }
 
 gboolean smooth_move(gpointer data) {
-gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) { return TRUE; }
 
     GtkWidget *widget = GTK_WIDGET(data);
     if (!dragging) { smooth_timer_running = FALSE; return FALSE; }
@@ -163,83 +185,324 @@ gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) { re
     return TRUE;
 }
 
-gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-    if (event->button == 1) {
-        dragging = TRUE; animating = FALSE;
-        drag_start_x = event->x_root; drag_start_y = event->y_root; final_dx = 0;
-        GdkWindow *gdk_win = gtk_widget_get_window(widget);
-        Display *xdisplay = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
-        XGrabPointer(xdisplay, win_id, True, ButtonReleaseMask | PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
-        target_w = base_w + 2.0; target_h = base_h + 2.0;
-        target_x = base_x - 1.0; target_y = base_y - 1.0;
-        if (!smooth_timer_running) { smooth_timer_running = TRUE; g_timeout_add(16, smooth_move, widget); }
-        return TRUE;
-    }
-    return FALSE;
+gboolean restaurar_blanco(gpointer data) {
+    GtkWidget *widget = GTK_WIDGET(data);
+
+    alpha_blanco = 1.0;
+    flash_timer = 0;
+
+    gtk_widget_queue_draw(widget);
+
+    return G_SOURCE_REMOVE;
 }
 
-gboolean on_motion_notify(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
-    if (dragging) {
-        double raw_dx = event->x_root - drag_start_x;
-        double raw_dy = event->y_root - drag_start_y;
-        if (raw_dx > 480) raw_dx = 480; if (raw_dx < -480) raw_dx = -480;
-        if (raw_dy > 0) raw_dy = 0; if (raw_dy < -100) raw_dy = -100;
+gboolean activar_estado_agente(gpointer data) {
+    GtkWidget *widget = GTK_WIDGET(data);
 
-        target_bend = raw_dy * 0.4;
+    if (!press_active || dragging)
+        return G_SOURCE_REMOVE;
 
-        int nuevo_gap = 33 + (int)fabs(raw_dy);
-        if (abs(nuevo_gap - last_gap) > 5) {
-            char cmd[128]; snprintf(cmd, sizeof(cmd), "i3-msg 'gaps bottom %d' > /dev/null 2>&1 &", nuevo_gap);
-            system(cmd); last_gap = nuevo_gap;
+    hold_timer = 0;
+    long_press_triggered = TRUE;
+
+    estado_agente = !estado_agente;
+
+    if (estado_agente) {
+        if (flash_timer) {
+            g_source_remove(flash_timer);
+            flash_timer = 0;
         }
-        double dx = aplicar_resistencia(raw_dx); final_dx = dx;
-        double extra_w = (fabs(raw_dy) - 5.0) * 0.5; if (extra_w < 0) extra_w = 0;
-        double extra_h = (fabs(raw_dy) - 5.0) * 0.05; if (extra_h < 0) extra_h = 0;
-        target_w = base_w + 2.0 + extra_w; target_h = base_h + 2.0 + extra_h;
-        target_x = base_x - 1.0 + dx - (extra_w / 2.0); target_y = base_y - 1.0 + raw_dy;
-        return TRUE;
+
+        alpha_blanco = 0.0;
+        gtk_widget_queue_draw(widget);
+
+        flash_timer = g_timeout_add(
+            80,
+            restaurar_blanco,
+            widget
+        );
     }
-    return FALSE;
+
+    if (estado_agente)
+        system("pkill -USR1 -x borde >/dev/null 2>&1");
+    else
+        system("pkill -USR2 -x borde >/dev/null 2>&1");
+
+    target_bend = 0;
+    vx = vy = vw = vh = 0;
+
+    animating = TRUE;
+    g_timeout_add(16, animate_back, widget);
+
+    return G_SOURCE_REMOVE;
+}
+
+gboolean on_button_press(GtkWidget *widget,
+                         GdkEventButton *event,
+                         gpointer data) {
+    if (event->button != 1 || press_active)
+        return FALSE;
+
+    press_active = TRUE;
+    dragging = FALSE;
+    animating = FALSE;
+    long_press_triggered = FALSE;
+
+    vx = vy = vw = vh = 0;
+
+    press_x = event->x_root;
+    press_y = event->y_root;
+
+    drag_start_x = press_x;
+    drag_start_y = press_y;
+    final_dx = 0;
+
+    GdkWindow *gdk_win = gtk_widget_get_window(widget);
+    Display *xdisplay =
+        GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+
+    XGrabPointer(
+        xdisplay, win_id, True,
+        ButtonReleaseMask | PointerMotionMask,
+        GrabModeAsync, GrabModeAsync,
+        None, None, CurrentTime
+    );
+
+    hold_timer = g_timeout_add(
+        HOLD_DURATION_MS,
+        activar_estado_agente,
+        widget
+    );
+
+    return TRUE;
+}
+
+gboolean on_motion_notify(GtkWidget *widget,
+                          GdkEventMotion *event,
+                          gpointer data) {
+    if (!press_active)
+        return FALSE;
+
+    if (long_press_triggered)
+        return TRUE;
+
+    if (!dragging) {
+        double desplazamiento = hypot(
+            event->x_root - press_x,
+            event->y_root - press_y
+        );
+
+        if (desplazamiento <= HOLD_MOVE_LIMIT)
+            return TRUE;
+
+        if (hold_timer) {
+            g_source_remove(hold_timer);
+            hold_timer = 0;
+        }
+
+        dragging = TRUE;
+        animating = FALSE;
+
+        if (!smooth_timer_running) {
+            smooth_timer_running = TRUE;
+            g_timeout_add(16, smooth_move, widget);
+        }
+    }
+
+    double raw_dx = event->x_root - drag_start_x;
+    double raw_dy = event->y_root - drag_start_y;
+
+    if (raw_dx > 480) raw_dx = 480;
+    if (raw_dx < -480) raw_dx = -480;
+    if (raw_dy > 0) raw_dy = 0;
+    if (raw_dy < -100) raw_dy = -100;
+
+    target_bend = raw_dy * 0.4;
+
+    int nuevo_gap = 33 + (int)fabs(raw_dy);
+
+    if (abs(nuevo_gap - last_gap) > 5) {
+        char cmd[128];
+        snprintf(
+            cmd, sizeof(cmd),
+            "i3-msg 'gaps bottom %d' > /dev/null 2>&1 &",
+            nuevo_gap
+        );
+        system(cmd);
+        last_gap = nuevo_gap;
+    }
+
+    double dx = aplicar_resistencia(raw_dx);
+    final_dx = dx;
+
+    double extra_w = (fabs(raw_dy) - 5.0) * 0.5;
+    if (extra_w < 0) extra_w = 0;
+
+    double extra_h = (fabs(raw_dy) - 5.0) * 0.05;
+    if (extra_h < 0) extra_h = 0;
+
+    double drag_base_w = estado_agente ? AGENT_W : base_w;
+    double drag_base_h = estado_agente ? AGENT_H : base_h;
+
+    double drag_base_x = estado_agente
+        ? base_x + (base_w - AGENT_W) / 2.0
+        : base_x;
+
+    double drag_base_y = estado_agente
+        ? base_y + base_h - AGENT_H
+        : base_y;
+
+    target_w = drag_base_w + 2.0 + extra_w;
+    target_h = drag_base_h + 2.0 + extra_h;
+
+    target_x = drag_base_x - 1.0 + dx - extra_w / 2.0;
+    target_y = drag_base_y - 1.0 + raw_dy;
+
+    return TRUE;
 }
 
 gboolean animate_back(gpointer data) {
     GtkWidget *widget = GTK_WIDGET(data);
-    if (!animating) return FALSE;
-    vx += (base_x - cur_x) * 0.10; vy += (base_y - cur_y) * 0.10;
-    vw += (base_w - cur_w) * 0.10; vh += (base_h - cur_h) * 0.10;
-    vx *= 0.75; vy *= 0.75; vw *= 0.75; vh *= 0.75;
-    cur_x += vx; cur_y += vy; cur_w += vw; cur_h += vh;
+
+    if (!animating)
+        return FALSE;
+
+    double destino_w = estado_agente ? AGENT_W : base_w;
+    double destino_h = estado_agente ? AGENT_H : base_h;
+
+    double destino_x = estado_agente
+        ? base_x + (base_w - AGENT_W) / 2.0
+        : base_x;
+
+    double destino_y = estado_agente
+        ? base_y + base_h - AGENT_H
+        : base_y;
+
+    vx += (destino_x - cur_x) * 0.10;
+    vy += (destino_y - cur_y) * 0.10;
+    vw += (destino_w - cur_w) * 0.10;
+    vh += (destino_h - cur_h) * 0.10;
+
+    vx *= 0.75;
+    vy *= 0.75;
+    vw *= 0.75;
+    vh *= 0.75;
+
+    cur_x += vx;
+    cur_y += vy;
+    cur_w += vw;
+    cur_h += vh;
+
+    if ((vy > 0 && cur_y > destino_y) ||
+        (vy < 0 && cur_y < destino_y)) {
+        cur_y = destino_y;
+        vy = 0;
+    }
 
     cur_bend += (target_bend - cur_bend) * 0.2;
 
-    if (cur_y > base_y) { cur_y = base_y; vy = 0; }
-    if (fabs(vx) < 0.1 && fabs(vy) < 0.1 && fabs(vw) < 0.1 && fabs(vh) < 0.1) {
-        cur_x = base_x; cur_y = base_y; cur_w = base_w; cur_h = base_h;
+    if (fabs(vx) < 0.1 && fabs(vy) < 0.1 &&
+        fabs(vw) < 0.1 && fabs(vh) < 0.1) {
+
+        cur_x = destino_x;
+        cur_y = destino_y;
+        cur_w = destino_w;
+        cur_h = destino_h;
         cur_bend = 0;
-        gtk_window_resize(GTK_WINDOW(widget), (int)(cur_w + GLOW*2), (int)(cur_h + GLOW*2));
-        gtk_window_move(GTK_WINDOW(widget), (int)(cur_x - GLOW), (int)(cur_y - GLOW));
-        update_shape(widget); gtk_widget_queue_draw(widget); animating = FALSE; return FALSE;
+
+        gtk_window_resize(
+            GTK_WINDOW(widget),
+            (int)(cur_w + GLOW * 2),
+            (int)(cur_h + GLOW * 2)
+        );
+
+        gtk_window_move(
+            GTK_WINDOW(widget),
+            (int)(cur_x - GLOW),
+            (int)(cur_y - GLOW)
+        );
+
+        update_shape(widget);
+        gtk_widget_queue_draw(widget);
+        animating = FALSE;
+
+        return FALSE;
     }
-    gtk_window_resize(GTK_WINDOW(widget), (int)(cur_w + GLOW*2), (int)(cur_h + GLOW*2));
-    gtk_window_move(GTK_WINDOW(widget), (int)(cur_x - GLOW), (int)(cur_y - GLOW));
-    update_shape(widget); gtk_widget_queue_draw(widget); return TRUE;
+
+    gtk_window_resize(
+        GTK_WINDOW(widget),
+        (int)(cur_w + GLOW * 2),
+        (int)(cur_h + GLOW * 2)
+    );
+
+    gtk_window_move(
+        GTK_WINDOW(widget),
+        (int)(cur_x - GLOW),
+        (int)(cur_y - GLOW)
+    );
+
+    update_shape(widget);
+    gtk_widget_queue_draw(widget);
+
+    return TRUE;
 }
 
-gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-    if (event->button == 1 && dragging) {
-        dragging = FALSE;
-        GdkWindow *gdk_win = gtk_widget_get_window(widget);
-        Display *xdisplay = GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
-        XUngrabPointer(xdisplay, CurrentTime);
-        system("i3-msg 'gaps bottom 33' > /dev/null 2>&1 &"); last_gap = 33;
-        
-        target_bend = 0;
-        if (fabs(final_dx) < 5.0) system("/opt/actriz/bin/toggle-dock.sh &");
-        if (final_dx > 100) system("i3-msg workspace next_on_output");
-        else if (final_dx < -100) system("i3-msg workspace prev_on_output");
-        animating = TRUE; g_timeout_add(16, animate_back, widget); return TRUE;
+gboolean on_button_release(GtkWidget *widget,
+                           GdkEventButton *event,
+                           gpointer data) {
+    if (event->button != 1 || !press_active)
+        return FALSE;
+
+    if (hold_timer) {
+        g_source_remove(hold_timer);
+        hold_timer = 0;
     }
-    return FALSE;
+
+    press_active = FALSE;
+
+    GdkWindow *gdk_win = gtk_widget_get_window(widget);
+    Display *xdisplay =
+        GDK_DISPLAY_XDISPLAY(gdk_window_get_display(gdk_win));
+
+    XUngrabPointer(xdisplay, CurrentTime);
+
+    if (long_press_triggered) {
+        long_press_triggered = FALSE;
+        return TRUE;
+    }
+
+    if (!dragging) {
+        system("/opt/actriz/bin/toggle-dock.sh &");
+
+        target_bend = 0;
+        vx = vy = vw = vh = 0;
+        animating = TRUE;
+        g_timeout_add(16, animate_back, widget);
+
+        return TRUE;
+    }
+
+    dragging = FALSE;
+
+    system("i3-msg 'gaps bottom 33' > /dev/null 2>&1 &");
+    last_gap = 33;
+
+    target_bend = 0;
+
+    if (fabs(final_dx) < 5.0)
+        system("/opt/actriz/bin/toggle-dock.sh &");
+
+    if (final_dx > 100)
+        system("i3-msg workspace next_on_output");
+    else if (final_dx < -100)
+        system("i3-msg workspace prev_on_output");
+
+    vx = vy = vw = vh = 0;
+    animating = TRUE;
+
+    g_timeout_add(16, animate_back, widget);
+
+    return TRUE;
 }
 
 int main(int argc, char *argv[]) {
@@ -268,7 +531,7 @@ int main(int argc, char *argv[]) {
 
     gtk_window_move(GTK_WINDOW(window), (int)(base_x - GLOW), (int)(base_y - GLOW));
     gtk_window_resize(GTK_WINDOW(window), (int)(base_w + GLOW*2), (int)(base_h + GLOW*2));
-    gtk_widget_set_size_request(window, (int)(base_w + GLOW*2), (int)(base_h + GLOW*2));
+    gtk_widget_set_size_request(window, 1, 1);
 
     g_signal_connect(window, "draw", G_CALLBACK(on_draw), NULL);
     g_signal_connect(window, "realize", G_CALLBACK(on_realize), NULL);

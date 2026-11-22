@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include <time.h>
 #include <libudev.h>
 
 double w = 400.0;
 double h = 120.0;
-double base_x = 1012.0;
+double base_x = 1010.0;
 double base_y = -40.0;
 Window win_id;
 
@@ -93,10 +94,24 @@ int leer_entero(const char *path, int fallback) {
     return v;
 }
 
-int get_battery_level() { return leer_entero(bat_capacity_path, 100); }
+int get_battery_level() {
+    static time_t last = 0;
+    static int cached = 100;
+    time_t now = time(NULL);
+    if (now == last) return cached;
+    last = now;
+    cached = leer_entero(bat_capacity_path, 100);
+    return cached;
+}
+
 int get_charging_efectivo() { return (ac_online_cache == 1 && !bat_full_cache) ? 1 : 0; }
 
 int get_wifi_strength() {
+    static time_t last = 0;
+    static int cached = 0;
+    time_t now = time(NULL);
+    if (now == last) return cached;
+    last = now;
     FILE *f = fopen("/proc/net/wireless", "r");
     if (!f) return 0;
     char line[256]; int strength = 0;
@@ -106,9 +121,12 @@ int get_wifi_strength() {
         if (sscanf(line, "%31[^:]: %*d %*d %d", iface, &val) == 2) { strength = val; break; }
     }
     fclose(f);
-    if (strength > -50) return 4; if (strength > -60) return 3;
-    if (strength > -70) return 2; if (strength > -80) return 1;
-    return 0;
+    if (strength > -50) cached = 4;
+    else if (strength > -60) cached = 3;
+    else if (strength > -70) cached = 2;
+    else if (strength > -80) cached = 1;
+    else cached = 0;
+    return cached;
 }
 
 static gboolean on_udev_event(GIOChannel *source, GIOCondition condition, gpointer data) {
@@ -151,7 +169,7 @@ void setup_udev_monitor(GtkWidget *window) {
 void dibujar_bateria(cairo_t *cr, double x, double y, int level, double alpha) {
     double b_w = 20.0, b_h = 10.0, nub_w = 2.0, nub_h = 4.0, padding = 1.5;
     double r = 4.0;
-    cairo_set_line_width(cr, 1.2);
+    cairo_set_line_width(cr, 1.128);
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha);
     cairo_new_sub_path(cr);
     cairo_arc(cr, x + r, y + r, r, M_PI, 1.5 * M_PI);
@@ -188,7 +206,7 @@ void dibujar_wifi(cairo_t *cr, double x, double y, int bars, double alpha) {
 }
 
 void dibujar_rayo(cairo_t *cr, double cx, double cy, double pulse, double alpha) {
-    double s = 1.40 + 0.30 * pulse;
+    double s = 1.316 + 0.282 * pulse;
     cairo_save(cr);
     cairo_translate(cr, cx, cy);
     cairo_scale(cr, -s, s);
@@ -277,8 +295,8 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     int charging = prev_charging;
     double pulse = charging ? (sin(pulse_phase * 2.0 * M_PI) + 1.0) / 2.0 : 0.0;
     double burst_progress = (burst_ticks > 0) ? (1.0 - (double)burst_ticks / 12.0) : -1.0;
-    double bx = (charging ? 35.0 : 36.0), by = (h - 10)/2.0 - 1.0, bw = 20.0, bh = 10.0;
-    double rayo_cx = (charging ? 64.0 : 67.0);
+    double bx = 36.0, by = (h - 10)/2.0 - 1.0, bw = 20.0, bh = 10.0;
+    double rayo_cx = 67.6;
     double rayo_cy = h / 2.0;
 
     cairo_surface_t *glow = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int)w, (int)h);
@@ -288,8 +306,6 @@ gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     dibujar_bateria(cr_glow, bx, by, bat, charging ? 1.0 : 0.55);
     if (charging) dibujar_rayo(cr_glow, rayo_cx, rayo_cy, pulse, 1.0);
     if (burst_progress >= 0) dibujar_burst(cr_glow, bx, by, bw, bh, burst_progress, 1.0);
-    blur_surface(glow, 5);
-    blur_surface(glow, 5);
     cairo_set_source_surface(cr, glow, 0, 0);
     cairo_paint(cr);
     cairo_destroy(cr_glow);
@@ -318,7 +334,7 @@ void on_map(GtkWidget *widget, gpointer data) {
 
 gboolean update_info(gpointer data) {
     if (prev_charging == 1) {
-        pulse_phase += 0.011;
+        pulse_phase += 0.07;
         if (pulse_phase >= 1.0) pulse_phase -= 1.0;
         gtk_widget_queue_draw(GTK_WIDGET(data));
     }
@@ -379,7 +395,7 @@ int main(int argc, char *argv[]) {
     g_signal_connect(window, "realize", G_CALLBACK(on_realize), NULL);
     g_signal_connect(window, "map-event", G_CALLBACK(on_map), NULL);
     setup_udev_monitor(window);
-    g_timeout_add(16, update_info, window);
+    g_timeout_add(200, update_info, window);
     gtk_widget_show_all(window);
     gtk_main();
 

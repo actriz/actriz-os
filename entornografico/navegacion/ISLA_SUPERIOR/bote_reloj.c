@@ -9,8 +9,8 @@
 
 double w = 110.0;
 double h = 30.0;
-double base_x = 807.0;
-double base_y = 5.0;
+double base_x = 808.0;
+double base_y = 4.0;
 Window win_id;
 
 // Bloquear el teclado (hacer que la ventana ignore todas las teclas)
@@ -37,20 +37,20 @@ void dibujar_contenido(cairo_t *cr, double alpha) {
     char time_str[16];
     strftime(time_str, sizeof(time_str), "%-I:%M", tm);
 
-    cairo_select_font_face(cr, "DejaVu Serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_select_font_face(cr, "Inter", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, 14.0);
     cairo_text_extents_t extents;
     cairo_text_extents(cr, time_str, &extents);
 
     double scale_x = 0.85; 
-    double scale_y = 1.07;
+    double scale_y = 1.18;
     double arrow_left_edge = icon_x - 4.0;
-    double text_x = arrow_left_edge - 3.5 - (extents.x_bearing + extents.width) * scale_x;
+    double text_x = arrow_left_edge - 6.5 - (extents.x_bearing + extents.width) * scale_x;
     if (text_x < 2.0) text_x = 2.0;
 
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha);
     cairo_save(cr);
-    cairo_translate(cr, text_x, (h + extents.height) / 2.0 - 1.0);
+    cairo_translate(cr, text_x, (h + extents.height) / 2.0 - 1.5);
     cairo_scale(cr, scale_x, scale_y);
     cairo_move_to(cr, 0, 0);
     cairo_show_text(cr, time_str);
@@ -61,7 +61,8 @@ void dibujar_contenido(cairo_t *cr, double alpha) {
     cairo_rotate(cr, -0.4722);
     cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, alpha);
     cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
-    cairo_set_line_width(cr, 2.5);
+    cairo_set_line_width(cr, 2.44);
+    cairo_scale(cr, 0.976, 0.976);
     cairo_move_to(cr, 0, -5.2);
     cairo_line_to(cr, 4.54, 4.54);
     cairo_line_to(cr, 0, 1.89);

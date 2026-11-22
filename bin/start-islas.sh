@@ -19,4 +19,4 @@ fi
 /opt/actriz/entornografico/navegacion/ISLA_INFERIOR/isla_inferior &
 /opt/actriz/entornografico/navegacion/ISLA_SUPERIOR/bote_reloj &
 /opt/actriz/entornografico/navegacion/ISLA_SUPERIOR/bote_wifi_bat &
-/opt/actriz/entornografico/navegacion/BORDE/borde &
+# /opt/actriz/entornografico/navegacion/BORDE/borde &

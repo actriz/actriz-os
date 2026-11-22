@@ -6,34 +6,34 @@ set $mod Mod4
 font pango:DejaVu Serif 8
 
 # --- ATAJOS BÁSICOS ---
-bindsym $mod+Return exec alacritty
+bindsym Control+Mod1+t exec /opt/actriz/bin/terminal
+bindsym $mod+Return exec /opt/actriz/bin/terminal
 bindsym $mod+d exec --no-startup-id rofi -show drun
 bindsym $mod+Z exec flatpak run app.zen_browser.zen
 
 # --- CONTROL DE VENTANAS (Estándar i3) ---
+# Cerrar ventana (Q de Quit)
+bindsym $mod+q kill
 bindsym $mod+Shift+q kill
-bindsym $mod+f fullscreen toggle
-bindsym $mod+Shift+space floating toggle
-bindsym $mod+space focus mode_toggle
+
+# Pantalla Completa (F11 universal)
+bindsym $mod+F11 fullscreen toggle
+
+# Modo Flotante (Espacio)
+bindsym $mod+space floating toggle
 
 # Minimizar y Restaurar (Estándar i3 Scratchpad)
 bindsym $mod+Shift+minus move scratchpad
 bindsym $mod+minus scratchpad show, floating disable
 
-# --- MOVIMIENTO Y FOCO (Estándar i3) ---
-bindsym $mod+j focus left
-bindsym $mod+k focus down
-bindsym $mod+l focus up
-bindsym $mod+semicolon focus right
+# --- MOVIMIENTO Y FOCO (Solo Flechas) ---
+# Foco
 bindsym $mod+Left focus left
 bindsym $mod+Down focus down
 bindsym $mod+Up focus up
 bindsym $mod+Right focus right
 
-bindsym $mod+Shift+j move left
-bindsym $mod+Shift+k move down
-bindsym $mod+Shift+l move up
-bindsym $mod+Shift+semicolon move right
+# Mover ventana
 bindsym $mod+Shift+Left move left
 bindsym $mod+Shift+Down move down
 bindsym $mod+Shift+Up move up
@@ -69,17 +69,27 @@ bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT
 bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
 
 # --- ESTÉTICA Y REGLAS ---
-default_border none
-default_floating_border none
-for_window [class=".*"] border none, floating disable
+# Marco invisible de 3px para redimensionar con el ratón
+default_border pixel 3
+default_floating_border pixel 3
 
-# Gaps
+# Colores transparentes para el marco (RGBA: #RRGGBBAA)
+client.focused          #00000000 #00000000 #00000000 #00000000 #00000000
+client.focused_inactive #00000000 #00000000 #00000000 #00000000 #00000000
+client.unfocused        #00000000 #00000000 #00000000 #00000000 #00000000
+client.urgent           #00000000 #00000000 #00000000 #00000000 #00000000
+client.placeholder      #00000000 #00000000 #00000000 #00000000 #00000000
+
+# Aplicar marco invisible a todas las ventanas
+for_window [class=".*"] border pixel 3, floating disable
+
+# Gaps (Espaciado entre ventanas)
 gaps inner 4
 gaps outer 4
 gaps top 30
 gaps bottom 30
 
-# Excepciones (Interfaces de Keu OS)
+# Excepciones (Interfaces de Keu OS sin marco)
 for_window [class="ActrizIsla"] floating enable, border none, sticky enable
 for_window [class="ActrizIslaBajo"] floating enable, border none, sticky enable
 for_window [class="KeuDock"] floating enable, border none, sticky enable
@@ -98,6 +108,21 @@ exec_always --no-startup-id sleep 1.5 && /opt/actriz/bin/start-islas.sh
 bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'Salir de Keu OS?' -B 'Sí' 'i3-msg exit'"
-bindsym $mod+a exec thunar
+bindsym $mod+a exec /opt/actriz/bin/abc-app
 
-# Wallpaper de Actriz (reejecuta en cada reload para nunca fallar)
+# --- WORKSPACES EXTENDIDOS (6 al 10) ---
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws10 "10"
+bindsym $mod+6  workspace number $ws6
+bindsym $mod+7  workspace number $ws7
+bindsym $mod+8  workspace number $ws8
+bindsym $mod+9  workspace number $ws9
+bindsym $mod+0  workspace number $ws10
+bindsym $mod+Shift+6 move container to workspace number $ws6
+bindsym $mod+Shift+7 move container to workspace number $ws7
+bindsym $mod+Shift+8 move container to workspace number $ws8
+bindsym $mod+Shift+9 move container to workspace number $ws9
+bindsym $mod+Shift+0 move container to workspace number $ws10

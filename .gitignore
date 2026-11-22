@@ -3,7 +3,6 @@
 *.bin
 
 # --- MOTOR LLAMA.CPP ---
-core/actriz_ai/bin/llama.cpp/
 
 # --- BINARIOS COMPILADOS (Los ignoramos, el código fuente sí se sube) ---
 entornografico/navegacion/ISLA_SUPERIOR/isla
@@ -14,7 +13,6 @@ entornografico/navegacion/ISLA_INFERIOR/dock
 entornografico/navegacion/BORDE/borde
 entornografico/aplicaciones/SISTEMA/sistema
 entornografico/aplicaciones/SISTEMA/theme_switcher
-core/actriz_ai/abc/abc
 
 # --- HERRAMIENTAS EXTERNAS Y BASURA ---
 ble.sh/
@@ -22,3 +20,4 @@ ble.sh/
 *.py
 *.bak*
 *.log
+.backups/

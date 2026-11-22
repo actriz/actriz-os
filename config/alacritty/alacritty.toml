@@ -1,0 +1,38 @@
+[terminal.shell]
+program = "/usr/bin/env"
+args = ["ZDOTDIR=/opt/actriz/config/zsh", "SHELL=/usr/bin/zsh", "/usr/bin/zsh", "-l"]
+
+[window]
+title = "Terminal"
+dynamic_title = true
+padding = { x = 12, y = 12 }
+
+[window.dimensions]
+columns = 100
+lines = 30
+
+# --- Paleta custom: azul cielo + amarillo suave ---
+[[colors.indexed_colors]]
+index = 75
+color = "#7fd8ff"
+
+[[colors.indexed_colors]]
+index = 111
+color = "#a8e6ff"
+
+[[colors.indexed_colors]]
+index = 228
+color = "#ffe680"
+
+# --- Paleta custom: azul cielo + amarillo suave ---
+[[colors.indexed_colors]]
+index = 75
+color = "#7fd8ff"
+
+[[colors.indexed_colors]]
+index = 111
+color = "#a8e6ff"
+
+[[colors.indexed_colors]]
+index = 228
+color = "#ffe680"

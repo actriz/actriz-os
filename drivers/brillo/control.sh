@@ -22,4 +22,9 @@ echo $NEWVAL > /sys/class/backlight/*/brightness
 
 # Guardar en la memoria persistente
 echo "$PCT" > ~/.config/actriz/estado/brillo.txt
-echo -e "\033[1;35m[ABC]:\033[0m Brillo ajustado al \033[1;33m$PCT%\033[0m"
+case "$1" in
+    subir)   echo -e "\033[1;35m[ABC]:\033[0m Brillo subido al \033[1;33m$PCT%\033[0m" ;;
+    bajar)   echo -e "\033[1;35m[ABC]:\033[0m Brillo bajado al \033[1;33m$PCT%\033[0m" ;;
+    cambiar) echo -e "\033[1;35m[ABC]:\033[0m Brillo ajustado al \033[1;33m$PCT%\033[0m" ;;
+    *)       echo -e "\033[1;35m[ABC]:\033[0m Brillo al \033[1;33m$PCT%\033[0m" ;;
+esac
